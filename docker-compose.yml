@@ -1,0 +1,52 @@
+version: '3.7'
+services:
+  db:
+    image: postgres:latest
+    ports:
+      - 5432:5432
+    env_file: .env
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: urbox_api_web
+    env_file: .env
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - ./_cache/_build:/app/_build
+      - ./_cache/deps:/app/deps
+    working_dir: /app
+    links:
+      - db:db
+    depends_on:
+      - db
+    command: mix phx.server
+
+  test:
+    env_file: ./.env
+    image: urbox_api_web
+    environment:
+    - MIX_ENV=test
+    volumes:
+      - .:/app
+      - ./_cache/_build:/app/_build
+      - ./_cache/deps:/app/deps
+    depends_on:
+    - web
+    command: mix test --cover --color --stale
+
+  staging:
+    build:
+      context: .
+      dockerfile: Dockerfile.stag
+    env_file: .env
+    ports:
+      - "4001:443"
+    links:
+      - db:db
+    depends_on:
+      - db
+    command: /bin/bash -c "REPLACE_OS_VARS=true /app/bin/urbox_api foreground"
